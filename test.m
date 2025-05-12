@@ -1,654 +1,3 @@
-clear; close all; clc
-
-
-%%
-
-p = EconomicsParameters();
-
-
-f = Utility;
-
-
-np = NumericalParameters(f,p);
-
-eqm.delta_h = 0.1*ones(size(np.q));
-eqm.delta_l = 0.1*ones(size(np.q));
-
-eqm.lambda_h = 0.1*linspace(0,1, np.q_num);
-eqm.lambda_l = 0.1*linspace(0,1, np.q_num);
-
-eqm.Omega_h = linspace(0,1, np.q_num)';
-eqm.Omega_l = linspace(0,1, np.q_num)';
-eqm.Omega_h = eqm.Omega_h.^.5;
-eqm.Omega_l = eqm.Omega_l.^.5;
-
-
-
-eqm.v_h_init = p.Pi_Vec(2) * np.q.^(p.sigma - 1)  + eqm.delta_h.^(1+p.beta)/(1+p.beta);
-eqm.v_l_init = p.Pi_Vec(1) * np.q.^(p.sigma - 1)  + eqm.delta_l.^(1+p.beta)/(1+p.beta);
-
-
-%%
-
-for iter = 1:500
-
-    eqm.v_h = eqm.v_h_init;
-    eqm.v_l = eqm.v_l_init;
-
-    
-    eqm.delta_h_hat = sum(eqm.delta_h.*f.forward_diff_Omega(eqm.Omega_h));
-    eqm.delta_l_hat = sum(eqm.delta_l.*f.forward_diff_Omega(eqm.Omega_l));
-    eqm.lambda_h_hat = sum(eqm.lambda_h.*f.forward_diff_Omega(eqm.Omega_h));
-    eqm.lambda_l_hat = sum(eqm.lambda_l.*f.forward_diff_Omega(eqm.Omega_l));
-
-
-    eqm.mu0_hh = eqm.delta_h_hat * f.P_X(p, p.Phi_Matrix(2,2));
-    eqm.mu0_hl = eqm.delta_h_hat * f.P_X(p, p.Phi_Matrix(2,1));
-    eqm.mu0_lh = eqm.delta_l_hat * f.P_X(p, p.Phi_Matrix(1,2));
-    eqm.mu0_ll = eqm.delta_l_hat * f.P_X(p, p.Phi_Matrix(1,1));
-
-    eqm.nu0_h = 1 - eqm.mu0_hh - eqm.mu0_lh;
-    eqm.nu0_l = 1 - eqm.mu0_hl - eqm.mu0_ll;
-
-
-    eqm.s_l = (p.gamma * p.m_bar - (1-p.gamma) * eqm.mu0_lh) / (p.gamma + (1-p.gamma) * eqm.mu0_hl - (1-p.gamma) * eqm.mu0_lh);
-    eqm.s_l = real(eqm.s_l);
-    eqm.s_l = min(max(eqm.s_l, 0), 0.95);
-    eqm.s_h = 1 - eqm.s_l;
-    eqm.s_h = real(eqm.s_h);
-    eqm.s_h = min(max(eqm.s_h, 0), 1);
-
-    eqm.mu_hh = eqm.s_h * eqm.mu0_hh;
-    eqm.mu_hl = eqm.s_l * eqm.mu0_hl;
-    eqm.mu_lh = eqm.s_h * eqm.mu0_lh;
-    eqm.mu_ll = eqm.s_l * eqm.mu0_ll;
-
-    eqm.nu_h = eqm.s_h * eqm.nu0_h;
-    eqm.nu_l = eqm.s_l * eqm.nu0_l;
-
-
-    %%
-
-
-
-    temp_h1 =  (1-p.gamma) * (1-eqm.lambda_h) * eqm.nu0_h .* eqm.Omega_h;
-
-    % Compute np.q_shift as a matrix where q(i)/y(j)
-    q_shift = np.q ./ np.y';
-    Omega_h_interp = interp1(np.q, eqm.Omega_h, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_h_interp(out_of_range) = 1; % Use the last value as a constant
-    temp_h2 = (1-p.gamma) * eqm.lambda_h * eqm.nu0_h .* (Omega_h_interp * (p.theta ./ (np.y).^(p.theta+1) .* np.dy));
-
-    q_shift = np.q ./ np.x';
-    Omega_h_interp = interp1(np.q, eqm.Omega_h, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_h_interp(out_of_range) = 1; % Use the last value as a constant
-    temp_h3 = (1-p.gamma) * eqm.mu0_hh * (Omega_h_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx));
-
-    q_shift = np.q ./ np.x';
-    Omega_l_interp = interp1(np.q, eqm.Omega_l, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_l_interp(out_of_range) = 1; % Use the last value as a constant
-    temp_h4 = (1-p.gamma) * eqm.mu0_lh * (Omega_l_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx));
-
-    temp_h5 = p.gamma * p.m_h * (eqm.Omega_h+ eqm.Omega_l);
-
-
-    temp_h = temp_h1 + temp_h2 + temp_h3 + temp_h4 + temp_h5 ;
-
-    temp_l1 = (1-p.gamma) * (1-eqm.lambda_l) * eqm.nu0_l .* eqm.Omega_l;
-
-    % Compute np.q_shift as a matrix where q(i)/y(j)
-    q_shift = np.q ./ np.y';
-    Omega_l_interp = interp1(np.q, eqm.Omega_l, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_l_interp(out_of_range) =1; % Use the last value as a constant
-    temp_l2 = (1-p.gamma) * eqm.lambda_l * eqm.nu0_l .* (Omega_l_interp * (p.theta ./ (np.y).^(p.theta+1) .* np.dy));
-
-
-    q_shift = np.q ./ np.x';
-    Omega_l_interp = interp1(np.q, eqm.Omega_l, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_l_interp(out_of_range) = 1; % Use the last value as a constant
-    temp_l3 = (1-p.gamma) * eqm.mu0_ll * (Omega_l_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx));
-
-    q_shift = np.q ./ np.x';
-    Omega_h_interp = interp1(np.q, eqm.Omega_h, q_shift, 'spline', 'extrap');
-    out_of_range = np.q*(1+p.g) < min(np.q) | np.q*(1+p.g) > max(np.q);
-    Omega_h_interp(out_of_range) = 1; % Use the last value as a constant
-    temp_l4 = (1-p.gamma) * eqm.mu0_hl * (Omega_h_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx));
-
-    temp_l5 = p.gamma * p.m_l * (eqm.Omega_l + eqm.Omega_h);
-
-    temp_l = temp_l1 + temp_l2 + temp_l3 + temp_l4 + temp_l5 ;
-
-    temp_h = temp_h/max(temp_h);
-    temp_l = temp_l/max(temp_l);
-
-
-    eqm.Omega_h_new = interp1(np.q, temp_h, np.q*(1+p.g), 'spline', 'extrap');
-    eqm.Omega_l_new = interp1(np.q, temp_l, np.q*(1+p.g), 'spline', 'extrap');
-    % Make monotonic increasing
-    % eqm.Omega_h_new = cummax(eqm.Omega_h_new);
-    % eqm.Omega_l_new = cummax(eqm.Omega_l_new);
-
-    % % Rescale to end at 1
-    eqm.Omega_h_new = eqm.Omega_h_new ./ eqm.Omega_h_new(end);
-    eqm.Omega_l_new = eqm.Omega_l_new ./ eqm.Omega_l_new(end);
-
-    % % Update
-    eqm.Omega_h = eqm.Omega_h_new;
-    eqm.Omega_l = eqm.Omega_l_new;
-
-    % plot(np.q, eqm.Omega_h, 'r', 'LineWidth', 2); hold on;
-    % plot(np.q, eqm.Omega_h_new, 'b', 'LineWidth', 2); hold on;
-
-    %%
-
-    q_shift = np.q .* np.y'/(1+p.g);
-    eqm.v_h_interp = interp1(np.q, eqm.v_h, q_shift, 'spline', 'extrap');
-    term_h1 =  eqm.nu0_h * eqm.v_h_interp * (p.theta ./ (np.y).^(p.theta+1) .* np.dy);
-
-    q_shift = np.q /(1+p.g);
-    eqm.v_h_interp = interp1(np.q, eqm.v_h, q_shift, 'spline', 'extrap');
-    term_h2 = eqm.nu0_h * eqm.nu0_h * eqm.v_h_interp;
-
-
-    q_shift = np.q .* np.x'/(1+p.g);
-    eqm.v_h_interp = interp1(np.q, eqm.v_h, q_shift, 'spline', 'extrap');
-    int_x = eqm.v_h_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx);
-    int_omega = int_x' * f.forward_diff_Omega(eqm.Omega_h);
-    term_h3 = eqm.s_h * f.P_X(p, p.Phi_Matrix(2,2)) * int_omega;
-
-    q_shift = np.q .* np.x'/(1+p.g);
-    eqm.v_h_interp = interp1(np.q, eqm.v_h, q_shift, 'spline', 'extrap');
-    int_x = eqm.v_h_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx);
-    int_omega = int_x' * f.forward_diff_Omega(eqm.Omega_l);
-    term_h4 = eqm.s_l * f.P_X(p, p.Phi_Matrix(2,1)) * int_omega;
-
-
-    eqm.delta_h = (   p.bellman * ( term_h3 + term_h4 )      ).^(1/(1+p.beta)) * ones(size(np.q));
-    eqm.lambda_h = (  p.bellman * ( term_h1 - term_h2 )./eqm.v_h   ).^(1/(1+p.beta));
-
-
-    q_shift = np.q .* np.y'/(1+p.g);
-    eqm.v_l_interp = interp1(np.q, eqm.v_l, q_shift, 'spline', 'extrap');
-    term_l1 =  eqm.nu0_l * eqm.v_l_interp * (p.theta ./ (np.y).^(p.theta+1) .* np.dy);
-
-    q_shift = np.q /(1+p.g);
-    eqm.v_l_interp = interp1(np.q, eqm.v_l, q_shift, 'spline', 'extrap');
-    term_l2 = eqm.nu0_l * eqm.nu0_l * eqm.v_l_interp;
-
-
-    q_shift = np.q .* np.x'/(1+p.g);
-    eqm.v_l_interp = interp1(np.q, eqm.v_l, q_shift, 'spline', 'extrap');
-    int_x = eqm.v_l_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx);
-    int_omega = int_x' * f.forward_diff_Omega(eqm.Omega_h);
-    term_l3 = eqm.s_l * f.P_X(p, p.Phi_Matrix(1,1)) * int_omega;
-
-    q_shift = np.q .* np.x'/(1+p.g);
-    eqm.v_l_interp = interp1(np.q, eqm.v_l, q_shift, 'spline', 'extrap');
-    int_x = eqm.v_l_interp * (p.theta * p.alpha^(p.theta) ./ (np.x).^(p.theta+1) .* np.dx);
-    int_omega = int_x' * f.forward_diff_Omega(eqm.Omega_l);
-    term_l4 = eqm.s_h * f.P_X(p, p.Phi_Matrix(1,2)) * int_omega;
-
-    eqm.delta_l = (   p.bellman * ( term_l3 + term_l4 )      ).^(1/(1+p.beta)) * ones(size(np.q));
-    eqm.lambda_l = (  p.bellman * ( term_l1 + term_l2 )./eqm.v_l   ).^(1/(1+p.beta));
-
-    eqm.delta_l = min( max(eqm.delta_l, 0), 1);
-    eqm.delta_h = min( max(eqm.delta_h, 0), 1);
-
-    eqm.lambda_l = min( max(eqm.lambda_l, 0), 1);
-    eqm.lambda_h = min( max(eqm.lambda_h, 0), 1);
-
-    eqm.v_l_init = p.Pi_Vec(1) * np.q.^(p.sigma - 1) ...
-            - eqm.delta_l.^(1+p.beta)/(1+p.beta) ...
-            - eqm.lambda_l.^(1+p.beta)/(1+p.beta) .* eqm.v_l ...
-            + p.bellman * ( eqm.lambda_l .* term_l1 + (1 - eqm.lambda_l) .* term_l2 ...
-                            + eqm.delta_l * term_l3   + eqm.delta_l * term_l4  );
-
-    eqm.v_h_init = p.Pi_Vec(2) * np.q.^(p.sigma - 1) ...
-            - eqm.delta_h.^(1+p.beta)/(1+p.beta) ...
-            - eqm.lambda_h.^(1+p.beta)/(1+p.beta) .* eqm.v_h ...
-            + p.bellman * ( eqm.lambda_h .* term_h1 + (1 - eqm.lambda_h) .* term_h2 ...
-                            + eqm.delta_h * term_h3   + eqm.delta_h * term_h4  );
-                            
-    eqm.v_h_init = max(eqm.v_h_init, 0);
-    eqm.v_l_init = max(eqm.v_l_init, 0);
-
-    % eqm.v_h_init = min(eqm.v_h_init, 1e8);
-    % eqm.v_l_init = min(eqm.v_l_init, 1e8);
-
-    %%
-
-
-    % disp(['Delta_l: ', num2str(max(abs(eqm.v_l_init - eqm.v_l)))])
-
-    if mod(iter, 50) == 0 
-        figure;
-        subplot(4,2,1);
-        plot(np.q, eqm.v_h_init, 'r', 'LineWidth', 2); hold on;
-        title("$v_h$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,2);
-        plot(np.q, eqm.v_l_init, 'g', 'LineWidth', 2); hold on;
-        title("$v_l$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,3);
-
-        plot(np.q, eqm.lambda_h, 'r', 'LineWidth', 2); hold on;
-        title("$\lambda_h$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,4);
-        plot(np.q, eqm.lambda_l, 'g', 'LineWidth', 2); hold on;
-        title("$\lambda_l$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,5);
-
-        plot(np.q, eqm.delta_h, 'r', 'LineWidth', 2); hold on;
-        title("$\delta_h$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,6);
-        plot(np.q, eqm.delta_l, 'g', 'LineWidth', 2); hold on;
-        title("$\delta_l$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,7);
-        plot(np.q, eqm.Omega_h, 'r', 'LineWidth', 2); hold on;
-        title("$\Omega_h$" , "Interpreter", "latex")
-        xlabel('q')
-
-        subplot(4,2,8);
-        plot(np.q, eqm.Omega_l, 'g', 'LineWidth', 2); hold on;
-        title("$\Omega_l$" , "Interpreter", "latex")
-
-        sgtitle(['Iteration: ', num2str(iter)])
-        drawnow
-        % Check convergence
-        disp(['Iteration: ', num2str(iter)])
-        disp(['v_h: ', num2str(max(abs(eqm.v_h_init - eqm.v_h)))])
-        disp(['v_h: ', num2str(max(abs(eqm.v_l_init - eqm.v_l)))])
-
-    end
-
-
-end
-
-
-% plot(np.q, eqm.v_h_init)
-% plot(np.q, eqm.Omega_h)
-
-x1 = [1,2,3];
-x2 = [6,7,8];
-
-
-x12 = x2 .* x1';
-
-x12
-
-
-x12_loop = zeros(length(x1), length(x2));
-
-for i = 1:length(x1)
-    for j = 1:length(x2)
-        x12_loop(i,j) = x1(i) * x2(j);
-    end
-end
-
-
-x12_loop
-
-
-
-x12_x2_loop = zeros(length(x1), length(x2));
-
-for i = 1:length(x1)
-    for j = 1:length(x2)
-        x12_x2_loop(i,j) = x12_loop(i,j) * x2(j);
-    end
-end
-
-x12_x2 = x12_loop .* x2;
-
-
-
-
-x12_x2_x1_loop = zeros(length(x1), length(x2));
-
-for i = 1:length(x1)
-    for j = 1:length(x2)
-        x12_x2_x1_loop(i,j) = x12_loop(i,j) * x2(j) * x1(i);
-    end
-end
-
-x12_x2_x1 = x12_loop .* x2 .* x1';
-
-
-%%
-
-
-clear; close all; clc
-
-
-%%
-
-p = EconomicsParameters();
-
-
-func = Utility;
-
-
-np = NumericalParameters(func,p);
-
-
-eqm = Model_Initialization(p, np, func);
-
-%%
-np.iter_step_max = 80;
-s = zeros(2, np.iter_step_max);
-nu_hat = zeros(2, np.iter_step_max);
-delta_hat = zeros(2, np.iter_step_max);
-mu_hat = zeros(2, 2, np.iter_step_max);
-g = zeros(1, np.iter_step_max);
-gp1_type = zeros(2, np.iter_step_max);
-% for iter = 1:np.iter_step_max
-
-
-
-
-
-
-% plot(np.q, eqm.omega_tilde(1,:) )
-% plot(np.q, eqm.omega(1,:) )
-
-
-
-
-omega_old = eqm.omega;
-eqm = Model_ExogenousProb(p, np, func, eqm);
-
-eqm = Model_MarketShare(p, np, func, eqm);
-
-eqm = Model_AggregateGrowth(p, np, func, eqm);
-
-eqm = Model_LoM_PDF_integral_gp1(p, np, func, eqm);
-
-eqm = Model_Bellman_integral_tamelambda(p, np, func, eqm);
-
-
-% s(:,iter) = eqm.s;
-% nu_hat(:,iter) = eqm.nu_hat;
-% delta_hat(:,iter) = eqm.delta_hat;
-% mu_hat(:,:,iter) = eqm.mu_hat;
-% g(iter) = eqm.g;
-% gp1_type(:,iter) = eqm.gp1_type;
-
-diff = abs(eqm.omega - omega_old);
-diff = max(diff(:));
-% fprintf('Iteration %d, max diff = %.3e\n', iter, diff);
-fprintf('max diff = %.3e\n', diff);
-
-
-
-% figure;
-subplot(1,3,1);
-hold on;
-plot(np.q, squeeze(eqm.omega(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.omega(2,:)),'b','LineWidth',2);
-plot(np.q, gampdf(np.q, 3, 1/2),'k','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\omega$', 'Interpreter', 'latex')
-title('$\omega(q)$', 'Interpreter', 'latex')
-legend({'$\omega_l$', '$\omega_h$', 'orig'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-subplot(1,3,2);
-hold on;
-plot(np.q, squeeze(eqm.lambda(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.lambda(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\lambda$', 'Interpreter', 'latex')
-title('$\lambda(q)$', 'Interpreter', 'latex')
-legend({'$\lambda_l$', '$\lambda_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-subplot(1,3,3);
-hold on;
-plot(np.q, squeeze(eqm.delta(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.delta(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\delta$', 'Interpreter', 'latex')
-title('$\delta(q)$', 'Interpreter', 'latex')
-legend({'$\delta_l$', '$\delta_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-sgtitle(sprintf ('$\\epsilon=%.1f, \\gamma=%.1f, \\sigma=%d, \\phi_h=%.2f, \\bar{m}=%.1f$', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1)), 'Interpreter', 'latex')
-set(gcf, 'Position', [100, 100, 1200, 900])
-
-eqm.mu_hat
-
-
-
-
-
-
-
-
-
-saveas(gcf, sprintf ('./figure/epsilon=%.1f, gamma=%.1f, sigma=%d, phi_h=%.2f, m_bar=%.1f.png', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1)))
-
-
-
-
-% figure(2);
-% subplot(1,3,1);
-% hold on;
-% plot(np.q, squeeze(eqm.omega(1,:)),'r','LineWidth',2);
-% plot(np.q, squeeze(eqm.omega(2,:)),'b','LineWidth',2);
-% plot(np.q, gampdf(np.q, 3, 1/2),'k','LineWidth',2);
-hold on;
-plot(np.q, eqm.v(1,:),'r','LineWidth',2);
-plot(np.q, eqm.v(2,:),'b','LineWidth',2); 
-hold off;
-
-
-%%
-
-
-figure(2);
-subplot(1,3,1);
-hold on;
-plot(np.q, squeeze(eqm.omega(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.omega(2,:)),'b','LineWidth',2);
-plot(np.q, gampdf(np.q, 3, 1/2),'k','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\omega$', 'Interpreter', 'latex')
-title('$\omega(q)$', 'Interpreter', 'latex')
-legend({'$\omega_l$', '$\omega_h$', 'orig', 'exp(-q)'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-subplot(1,3,2);
-hold on;
-plot(np.q, squeeze(eqm.lambda(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.lambda(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\lambda$', 'Interpreter', 'latex')
-title('$\lambda(q)$', 'Interpreter', 'latex')
-legend({'$\lambda_l$', '$\lambda_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-subplot(1,3,3);
-hold on;
-plot(np.q, squeeze(eqm.delta(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.delta(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\delta$', 'Interpreter', 'latex')
-title('$\delta(q)$', 'Interpreter', 'latex')
-legend({'$\delta_l$', '$\delta_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-sgtitle(sprintf ('$\\epsilon=%.1f, \\gamma=%.1f, \\sigma=%d, \\phi_h=%.2f, \\bar{m}=%.1f$', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1)), 'Interpreter', 'latex')
-
-
-%%
-
-
-
-clear; close all; clc
-
-
-%%
-
-p = EconomicsParameters();
-
-
-func = Utility;
-
-
-np = NumericalParameters(func,p);
-
-
-eqm = Model_Initialization(p, np, func);
-
-%%
-np.iter_step_max = 80;
-s = zeros(2, np.iter_step_max);
-nu_hat = zeros(2, np.iter_step_max);
-delta_hat = zeros(2, np.iter_step_max);
-mu_hat = zeros(2, 2, np.iter_step_max);
-g = zeros(1, np.iter_step_max);
-gp1_type = zeros(2, np.iter_step_max);
-% for iter = 1:np.iter_step_max
-
-
-
-
-
-
-% plot(np.q, eqm.omega_tilde(1,:) )
-% plot(np.q, eqm.omega(1,:) )
-
-
-
-iter =0;
-
-iter= iter+1;
-omega_old = eqm.omega;
-eqm = Model_ExogenousProb(p, np, func, eqm);
-
-eqm = Model_MarketShare(p, np, func, eqm);
-
-eqm = Model_AggregateGrowth(p, np, func, eqm);
-
-% eqm = Model_LoM_PDF_integral_gp1(p, np, func, eqm);
-eqm = Model_LoM_PDF_integral_gp1_exogenous_lognormal(p, np, func, eqm);
-
-% eqm = Model_Bellman_integral(p, np, func, eqm);
-% eqm = Model_Bellman_integral_tamelambda(p, np, func, eqm);
-eqm = Model_Bellman_integral_tamelambda_simple(p, np, func, eqm);
-
-
-
-
-% s(:,iter) = eqm.s;
-% nu_hat(:,iter) = eqm.nu_hat;
-% delta_hat(:,iter) = eqm.delta_hat;
-% mu_hat(:,:,iter) = eqm.mu_hat;
-% g(iter) = eqm.g;
-% gp1_type(:,iter) = eqm.gp1_type;
-
-diff = abs(eqm.omega - omega_old);
-diff = max(diff(:));
-% fprintf('Iteration %d, max diff = %.3e\n', iter, diff);
-fprintf('iter =%d,  max diff = %.3e\n', iter, diff);
-
-
-
-% figure;
-subplot(2,2,1);
-hold on;
-plot(np.q, squeeze(eqm.omega(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.omega(2,:)),'b','LineWidth',2);
-plot(np.q,   1./(np.q * (1+eqm.g) * p.tau * sqrt(2 * pi)) .* exp(- (log(np.q * (1+eqm.g)) - p.iota).^2 / (2 * p.tau^2)),'k','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\omega$', 'Interpreter', 'latex')
-title('$\omega(q)$', 'Interpreter', 'latex')
-legend({'$\omega_l$', '$\omega_h$', 'orig'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-subplot(2,2,2);
-hold on;
-plot(np.q, squeeze(eqm.lambda(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.lambda(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\lambda$', 'Interpreter', 'latex')
-title('$\lambda(q)$', 'Interpreter', 'latex')
-legend({'$\lambda_l$', '$\lambda_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-subplot(2,2,3);
-hold on;
-plot(np.q, squeeze(eqm.delta(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.delta(2,:)),'b','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$\delta$', 'Interpreter', 'latex')
-title('$\delta(q)$', 'Interpreter', 'latex')
-legend({'$\delta_l$', '$\delta_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-% figure(1);
-subplot(2,2,4);
-hold on;
-plot(np.q, squeeze(eqm.v(1,:)),'r','LineWidth',2);
-plot(np.q, squeeze(eqm.v(2,:)),'b','LineWidth',2);
-plot(np.q, p.pi(1) .* np.q.^(p.sigma-1),'k','LineWidth',2);
-hold off;
-xlabel('q')
-ylabel('$v$', 'Interpreter', 'latex')
-title('$v(q)$', 'Interpreter', 'latex')
-legend({'$v_l$', '$v_h$', 'orig'}, 'Interpreter', 'latex', 'Location', 'best')
-
-% subplot(2,3,5);
-% hold on;
-% plot(g, 'g','LineWidth',2);
-% plot(gp1_type(1,:),'r','LineWidth',2);
-% plot(gp1_type(2,:),'b','LineWidth',2);
-% hold off;
-% xlabel('Iteration','Interpreter','latex','FontSize',14);
-% ylabel('Growth Rate','Interpreter','latex','FontSize',14);
-% title('Growth Rate Convergence','Interpreter','latex','FontSize',14);
-% legend({'$g$','$g_l$', '$g_h$'}, 'Interpreter', 'latex', 'Location', 'best')
-
-
-% subplot(2,3,6);
-% hold on;
-% plot(s(1,:),'r','LineWidth',2);
-% plot(s(2,:),'b','LineWidth',2);
-% hold off;
-% xlabel('Iteration','Interpreter','latex','FontSize',14);
-% ylabel('Market Share','Interpreter','latex','FontSize',14);
-% legend('$s_l$','$s_h$','Interpreter','latex','Location','best','FontSize',14);
-% title('Market Share Convergence','Interpreter','latex','FontSize',14);
-
-sgtitle(sprintf ('$\\epsilon=%.1f, \\gamma=%.1f, \\sigma=%d, \\phi_h=%.2f, \\bar{m}=%.1f$', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1)), 'Interpreter', 'latex')
-% set(gcf, 'Position', [100, 100, 1200, 900])
-
-eqm.omega(:,end)
-
-
-
-
-
 
 
 %%
@@ -798,3 +147,1307 @@ legend('$1-F_X(x)$', '$1-F_Y(y)$', '$1-F_Z(z)$', 'Interpreter', 'latex', 'FontSi
 xlabel('$x, y, z$', 'Interpreter', 'latex', 'FontSize', 20);
 ylabel('CDF Value', 'Interpreter', 'latex', 'FontSize', 20);
 title('CDFs of X, Y, and Z (Pareto-related)', 'Interpreter', 'latex', 'FontSize', 20);
+
+
+
+
+
+%%
+
+
+
+% gamma = [0.02 0.03 0.07];
+% gamma = [0.07];
+% gamma = [0.10];
+% gamma = [0.20];
+gamma = [0.10 0.20];
+
+m = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9];
+% m = [0.7, 0.75, 0.8, 0.85, 0.9];
+% m = [0.75, 0.8, 0.85, 0.9];
+% m = [0.85, 0.9];
+% m = [0.9];
+
+% phi_h = [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3];
+
+% r = [0.05 0.1 0.15 0.2 0.25 0.3];
+r = [0.15];
+% theta = [4 5];
+% theta = [3 4];
+theta = [5];
+% alpha = [0.5 0.8 0.88];
+% alpha = [0.6 0.7];
+alpha = [0.5 0.6 0.7 0.8 0.9];
+
+
+result_Expected_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+result_10quantile_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+result_50quantile_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+result_90quantile_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+result_s = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+result_g_3 = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+result_mu_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2,2);
+result_nu_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+result_delta_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+result_lambda_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+result_flag = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),1);
+
+for i = 1:length(gamma)
+    for j = 1:length(m)
+        % for k = 1:length(phi_h)
+            for l = 1:length(r)
+                for f = 1:length(theta)
+                    for g = 1:length(alpha)
+                        
+                        p.r = r(l);
+                        p.alpha = alpha(g);
+                        p.theta = theta(f);
+                        p.m_bar = m(j);
+                        p.gamma = gamma(i);
+                        p.phi_h = 0.95;
+                        p.epsilon = 1.0;
+                        p.sigma =3.0;
+                        file_name = sprintf('epsilon=%.2f, gamma=%.2f, sigma=%d, phi_h=%.2f, m_bar=%.2f, r=%.2f, alpha=%.2f, theta=%.2f', p.epsilon, p.gamma, p.sigma, p.phi_h, p.m_bar, p.r, p.alpha, p.theta);
+                        data = load(['./data3/', file_name, '.mat'] , 'p', 'np' , 'eqm_save');
+                        % Regular expression to extract the iteration number
+
+                        % Directory containing figure files
+                        folder_path = './figure_converge3';
+
+                        % Get list of all PNG files in the folder
+                        file_list = dir(fullfile(folder_path, '*.png'));
+
+                        % Loop through each file and extract iteration number
+                        for k = 1:length(file_list)
+                            file_name_var = file_list(k).name;
+                            
+                            % Check if the file name starts with the base file name
+                            if startsWith(file_name_var, file_name)
+                                % Regular expression to extract the iteration number
+                                pattern = '_iter=(\d+)\.png';
+                                tokens = regexp(file_name_var, pattern, 'tokens');
+                                
+                                % Convert the extracted token to a number
+                                if ~isempty(tokens)
+                                    iter = str2double(tokens{1}{1});
+                                    fprintf('File: %s, Extracted iteration number: %d\n', file_name_var, iter);
+                                    break; % Exit the loop once the iteration number is found
+
+                                else
+                                    fprintf('File: %s, No iteration number found.\n', file_name_var);
+                                end
+                            end
+                        end
+
+
+                        p_iter = data.p;
+                        np_iter = data.np;
+                        eqm_iter = data.eqm_save;
+                        
+                        lambda_interp_l = @(q) interp1(np_iter.q, eqm_iter.lambda(1,:), q, 'spline', 'extrap');
+                        lambda_interp_h = @(q) interp1(np_iter.q, eqm_iter.lambda(2,:), q, 'spline', 'extrap');
+                        omega_interp_l = @(q) interp1(np_iter.q, eqm_iter.omega(1,:), q, 'spline', 'extrap');
+                        omega_interp_h = @(q) interp1(np_iter.q, eqm_iter.omega(2,:), q, 'spline', 'extrap');
+                        omega_entry = @(q) 1./(q * p_iter.tau * sqrt(2*pi)) .* exp(-(log(q) - p_iter.iota).^2 / (2 * p_iter.tau^2));
+
+                        result_Expected_q(i,j, l,f,g, 1) = integral(@(q) q .* omega_interp_l(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+                        result_10quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+                        result_50quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+                        result_90quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+
+                        result_Expected_q(i,j, l,f,g, 2) = integral(@(q) q .* omega_interp_h(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+                        result_10quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+                        result_50quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+                        result_90quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+
+                        result_Expected_q(i,j, l,f,g, 3) = integral(@(q) q .* omega_entry(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+                        result_10quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+                        result_50quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+                        result_90quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+                        % result_s = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+                        % result_g_3 = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
+                        % result_mu_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2,2);
+                        % result_nu_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+                        % result_delta_hat = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),2);
+                        % result_flag = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),1);
+
+                        result_s(i,j, l,f,g, :) = eqm_iter.s;
+                        % result_g_3(i,j, l,f,g, 1) = (eqm_iter.gp1_type(1))^(1/p_iter.sigma-1)-1;
+                        % result_g_3(i,j, l,f,g, 2) = (eqm_iter.gp1_type(2))^(1/p_iter.sigma-1)-1;
+                        result_g_3(i,j, l,f,g, 1) = (eqm_iter.gp1_type(1))-1;
+                        result_g_3(i,j, l,f,g, 2) = (eqm_iter.gp1_type(2))-1;
+                        result_g_3(i,j, l,f,g, 3) = eqm_iter.g;
+
+                        result_mu_hat(i,j, l,f,g, :, :) = eqm_iter.mu_hat;
+                        result_nu_hat(i,j, l,f,g, :) = eqm_iter.nu_hat;
+                        result_delta_hat(i,j, l,f,g, :) = eqm_iter.delta_hat;
+                        result_lambda_hat(i,j, l,f,g, 1) = integral(@(q) omega_interp_l(q) .* lambda_interp_l(q), np_iter.q_min, np_iter.q_max);
+                        result_lambda_hat(i,j, l,f,g, 2) = integral(@(q) omega_interp_h(q) .* lambda_interp_h(q), np_iter.q_min, np_iter.q_max);
+
+
+                        if iter<500
+                            result_flag(i,j, l,f,g, 1) = 1;
+                        else
+                            result_flag(i,j, l,f,g, 1) = 0;
+                        end
+
+
+                    end
+                end
+            end
+        % end
+    end
+end
+
+
+
+% l = 1;
+% f = 1;
+% g = 1;
+% i = 1;
+% j = 1;
+
+% p.r = r(l);
+% p.alpha = alpha(g);
+% p.theta = theta(f);
+% p.m_bar = m(j);
+% p.gamma = gamma(i);
+% p.phi_h = 0.95;
+% p.epsilon = 1.0;
+% p.sigma =3.0;
+% file_name = sprintf('epsilon=%.2f, gamma=%.2f, sigma=%d, phi_h=%.2f, m_bar=%.2f, r=%.2f, alpha=%.2f, theta=%.2f', p.epsilon, p.gamma, p.sigma, p.phi_h, p.m_bar, p.r, p.alpha, p.theta);
+% data = load(['./data3/', file_name, '.mat'] , 'p', 'np' , 'eqm_save');
+% % Regular expression to extract the iteration number
+
+% % Directory containing figure files
+% folder_path = './figure_converge3';
+
+% % Get list of all PNG files in the folder
+% file_list = dir(fullfile(folder_path, '*.png'));
+
+% % Loop through each file and extract iteration number
+% for k = 1:length(file_list)
+%     file_name_var = file_list(k).name;
+    
+%     % Check if the file name starts with the base file name
+%     if startsWith(file_name_var, file_name)
+%         % Regular expression to extract the iteration number
+%         pattern = '_iter=(\d+)\.png';
+%         tokens = regexp(file_name_var, pattern, 'tokens');
+        
+%         % Convert the extracted token to a number
+%         if ~isempty(tokens)
+%             iter = str2double(tokens{1}{1});
+%             fprintf('File: %s, Extracted iteration number: %d\n', file_name_var, iter);
+%             break; % Exit the loop once the iteration number is found
+
+%         else
+%             fprintf('File: %s, No iteration number found.\n', file_name_var);
+%         end
+%     end
+% end
+
+
+% p_iter = data.p;
+% np_iter = data.np;
+% eqm_iter = data.eqm_save;
+
+% % omega_entry = @(q) 1./(q * p_iter.tau * sqrt(2*pi)) .* exp(-(log(q) - p_iter.iota).^2 / (2 * p_iter.tau^2));
+
+% % E_q = integral(@(q) q .* omega_entry(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+% % q_10 = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+% % q_50 = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+% % q_90 = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+                        
+% omega_interp_l = @(q) interp1(np_iter.q, eqm_iter.omega(1,:), q, 'spline', 'extrap');
+% omega_interp_h = @(q) interp1(np_iter.q, eqm_iter.omega(2,:), q, 'spline', 'extrap');
+% omega_entry = @(q) 1./(q * p_iter.tau * sqrt(2*pi)) .* exp(-(log(q) - p_iter.iota).^2 / (2 * p_iter.tau^2));
+
+% result_Expected_q(i,j, l,f,g, 1) = integral(@(q) q .* omega_interp_l(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+% result_10quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+% result_50quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+% result_90quantile_q(i,j, l,f,g, 1) = fzero(@(q) integral(omega_interp_l, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+% result_Expected_q(i,j, l,f,g, 2) = integral(@(q) q .* omega_interp_h(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+% result_10quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+% result_50quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+% result_90quantile_q(i,j, l,f,g, 2) = fzero(@(q) integral(omega_interp_h, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+
+% result_Expected_q(i,j, l,f,g, 3) = integral(@(q) q .* omega_entry(q), np_iter.q_min, np_iter.q_max);  % Choose appropriate limits
+% result_10quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.10, [np_iter.q_min, np_iter.q_max]);
+% result_50quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.50, [np_iter.q_min, np_iter.q_max]);
+% result_90quantile_q(i,j, l,f,g, 3) = fzero(@(q) integral(omega_entry, np_iter.q_min, q) - 0.90, [np_iter.q_min, np_iter.q_max]);
+
+
+
+
+
+% result_s(i,j, l,f,g, :) = eqm_iter.s;
+% result_g_3(i,j, l,f,g, 1) = (eqm_iter.gp1_type(1))^(1/p_iter.sigma-1);
+% result_g_3(i,j, l,f,g, 2) = (eqm_iter.gp1_type(2))^(1/p_iter.sigma-1);
+% result_g_3(i,j, l,f,g, 3) = eqm_iter.g;
+
+% result_mu_hat(i,j, l,f,g, :, :) = eqm_iter.mu_hat;
+% result_nu_hat(i,j, l,f,g, :) = eqm_iter.nu_hat;
+% result_delta_hat(i,j, l,f,g, :) = eqm_iter.delta_hat;
+
+% if iter<500
+%     result_flag(i,j, l,f,g, 1) = 1;
+% else
+%     result_flag(i,j, l,f,g, 1) = 0;
+% end
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 2, 1);
+    hold on;
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_s(i,j, l,f,g, 1), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_s(i,j, l,f,g, 1), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$s_l$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    yline(0.5, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Market Share For Type L', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 2, 2);
+    hold on;
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_s(i,j, l,f,g, 2), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_s(i,j, l,f,g, 2), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$s_h$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    yline(0.5, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Market Share For Type H', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/MarketShare_gamma=%.2f.png', gamma(i)));
+end
+
+
+%%
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 3, 1);
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    hold on;
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_g_3(i,j, l,f,g, 1), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_g_3(i,j, l,f,g, 1), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$g_l$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([-0.5, 0.5]);
+    yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Growth Rate For Type L', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 3, 2);
+    hold on;
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_g_3(i,j, l,f,g, 2), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_g_3(i,j, l,f,g, 2), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$g_h$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([-0.5, 0.5]);
+    yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Growth Rate For Type H', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+
+
+
+    subplot(1, 3, 3);
+    hold on;
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_g_3(i,j, l,f,g, 3), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_g_3(i,j, l,f,g, 3), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$g$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([-0.5, 0.5]);
+    yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Aggregate Growth Rate', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+
+
+
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/GrowthRate_gamma=%.2f.png', gamma(i)));
+
+end
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 2, 1);
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    hold on;
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_mu_hat(i,j, l,f,g, 1,1) + result_mu_hat(i,j, l,f,g, 1,2), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_mu_hat(i,j, l,f,g, 1,1) + result_mu_hat(i,j, l,f,g, 1,2), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('$\hat{\mu}_{11} + \hat{\mu}_{12}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type L Steal Prob $\hat{\mu}_{11} + \hat{\mu}_{12}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 2, 2);
+    hold on;
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_mu_hat(i,j, l,f,g, 2,1) + result_mu_hat(i,j, l,f,g, 2,2), color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_mu_hat(i,j, l,f,g, 2,1) + result_mu_hat(i,j, l,f,g, 2,2), 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel(' $\hat{\mu}_{21} + \hat{\mu}_{22}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Steal Prob $\hat{\mu}_{21} + \hat{\mu}_{22}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+
+
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+
+
+
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/StealProbability_gamma=%.2f.png', gamma(i)));
+
+end
+
+
+%%
+
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 2, 1);
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    hold on;
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_nu_hat(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_nu_hat(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\nu}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type L Save Prob $\hat{\nu}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 2, 2);
+    hold on;
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_nu_hat(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_nu_hat(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\nu}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Save Prob $\hat{\nu}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+
+
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+
+
+
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/SaveProbability_gamma=%.2f.png', gamma(i)));
+
+end
+
+
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 2, 1);
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    hold on;
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_delta_hat(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_delta_hat(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\delta}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Expected External Innovation Probability $\hat{\delta}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 2, 2);
+    hold on;
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_delta_hat(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_delta_hat(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\delta}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Expected External Innovation Probability $\hat{\delta}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+
+
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+
+
+
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/Expected_External_gamma=%.2f.png', gamma(i)));
+
+end
+
+
+
+
+%%
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    subplot(1, 2, 1);
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+    hold on;
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_lambda_hat(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_lambda_hat(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\lambda}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Expected Internal Innovation Probability $\hat{\lambda}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+    subplot(1, 2, 2);
+    hold on;
+    
+    legend_handles = []; % Initialize an array to store scatter handles for the legend
+    legend_labels = {};  % Initialize legend labels
+
+
+    for g = 1:length(alpha)
+
+        color = color_set{g};
+        legend_labels{g} = sprintf('$\\alpha = %.2f$', alpha(g)); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        h = scatter(NaN, NaN, color, 'filled');
+        legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_lambda_hat(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_lambda_hat(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+    end
+
+    xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylabel('  $\hat{\lambda}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
+    ylim([0, 1]);
+    % yline(0, 'k--', 'LineWidth', 1.5);
+    legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+    title('Type H Expected Internal Innovation Probability $\hat{\lambda}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    hold off;
+
+
+
+
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+
+
+
+    set(gcf, 'Position', [100, 100, 2200, 1200]); % Set figure size
+    saveas(gcf, sprintf ('./figure_analysis/Expected_Internal_gamma=%.2f.png', gamma(i)));
+
+end
+
+
+
+%%
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    for g = 1:length(alpha)
+
+        subplot(1, length(alpha), g);
+
+        legend_handles = []; % Initialize an array to store scatter handles for the legend
+        legend_labels = {};  % Initialize legend labels
+
+        hold on;
+
+        color = color_set{1};        
+        h1 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h1];
+        legend_labels{end+1} = '$E(q_l)$';
+
+        % legend_labels{1} = sprintf('$E(q_l)$'); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+        color = color_set{2};
+
+        h2 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h2];
+        legend_labels{end+1} = '$E(q_h)$';
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+
+        color = color_set{3};
+
+        h3 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h3];
+        legend_labels{end+1} = '$E(q_{entry})$';
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 3) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_Expected_q(i,j, l,f,g, 3) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+        xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel('  $E(q)$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylim([0.8, 3.6]);
+        % yline(0, 'k--', 'LineWidth', 1.5);
+        legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+        title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+        set(gcf, 'Position', [100, 100, 2600, 1200]); % Set figure size
+        hold off;
+
+
+
+    end
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    saveas(gcf, sprintf ('./figure_analysis/Expected_q_gamma=%.2f.png', gamma(i)));
+end
+
+
+
+
+%%
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    for g = 1:length(alpha)
+
+        subplot(1, length(alpha), g);
+
+        legend_handles = []; % Initialize an array to store scatter handles for the legend
+        legend_labels = {};  % Initialize legend labels
+
+        hold on;
+
+        color = color_set{1};        
+        h1 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h1];
+        legend_labels{end+1} = '$q_{l}(0.1)$';
+
+        % legend_labels{1} = sprintf('$E(q_l)$'); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+        color = color_set{2};
+
+        h2 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h2];
+        legend_labels{end+1} = '$q_{h}(0.1)$';
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+
+        color = color_set{3};
+
+        h3 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h3];
+        legend_labels{end+1} = '$q_{entry}(0.1)$';
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 3) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_10quantile_q(i,j, l,f,g, 3) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+        xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel('  $q_{10\%}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylim([0.3, 0.6]);
+        % yline(0, 'k--', 'LineWidth', 1.5);
+        legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+        title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+        set(gcf, 'Position', [100, 100, 2600, 1200]); % Set figure size
+        hold off;
+
+
+
+    end
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    saveas(gcf, sprintf ('./figure_analysis/10quantile_gamma=%.2f.png', gamma(i)));
+end
+
+
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    for g = 1:length(alpha)
+
+        subplot(1, length(alpha), g);
+
+        legend_handles = []; % Initialize an array to store scatter handles for the legend
+        legend_labels = {};  % Initialize legend labels
+
+        hold on;
+
+        color = color_set{1};        
+        h1 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h1];
+        legend_labels{end+1} = '$q_{l}(0.5)$';
+
+        % legend_labels{1} = sprintf('$E(q_l)$'); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+        color = color_set{2};
+
+        h2 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h2];
+        legend_labels{end+1} = '$q_{h}(0.5)$';
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+
+        color = color_set{3};
+
+        h3 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h3];
+        legend_labels{end+1} = '$q_{entry}(0.5)$';
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 3) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_50quantile_q(i,j, l,f,g, 3) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+        xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel('  $q_{50\%}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylim([0.7, 2]);
+        % yline(0, 'k--', 'LineWidth', 1.5);
+        legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+        title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+        set(gcf, 'Position', [100, 100, 2600, 1200]); % Set figure size
+        hold off;
+
+
+
+    end
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    saveas(gcf, sprintf ('./figure_analysis/50quantile_gamma=%.2f.png', gamma(i)));
+end
+
+
+
+
+%%
+color_set = {'r', 'g', 'b', 'k', 'm', 'c'};
+
+for i = 1:length(gamma)
+
+    figure;
+
+    for g = 1:length(alpha)
+
+        subplot(1, length(alpha), g);
+
+        legend_handles = []; % Initialize an array to store scatter handles for the legend
+        legend_labels = {};  % Initialize legend labels
+
+        hold on;
+
+        color = color_set{1};        
+        h1 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h1];
+        legend_labels{end+1} = '$q_{l}(0.9)$';
+
+        % legend_labels{1} = sprintf('$E(q_l)$'); % Add legend label for each alpha
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 1) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 1) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+        color = color_set{2};
+
+        h2 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h2];
+        legend_labels{end+1} = '$q_{h}(0.9)$';
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 2) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 2) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+
+
+        color = color_set{3};
+
+        h3 = scatter(NaN, NaN, color, 'filled'); % Dummy scatter for legend
+        legend_handles = [legend_handles, h3];
+        legend_labels{end+1} = '$q_{entry}(0.9)$';
+
+        % Create a dummy scatter plot for the legend
+        % legend_handles = [legend_handles, h];
+
+        for l = 1:length(r)
+            for f = 1:length(theta)
+                for j = 1:length(m)
+                    if result_flag(i,j, l,f,g, 1) == 1
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 3) , color, 'filled');
+                    elseif result_flag(i,j, l,f,g, 1) == 0
+                        scatter(m(j), result_90quantile_q(i,j, l,f,g, 3) , 'x', 'MarkerEdgeColor', color);
+                    end
+                end
+            end
+        end
+
+        xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel('  $q_{90\%}$', 'Interpreter', 'latex', 'FontSize', 20);
+        ylim([1, 10]);
+        % yline(0, 'k--', 'LineWidth', 1.5);
+        legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
+        title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+        set(gcf, 'Position', [100, 100, 2600, 1200]); % Set figure size
+        hold off;
+
+
+
+    end
+
+    sgtitle(sprintf('$\\gamma = %.2f$', gamma(i)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
+    saveas(gcf, sprintf ('./figure_analysis/90quantile_gamma=%.2f.png', gamma(i)));
+end
+
+
