@@ -1,0 +1,42 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2023 The MathWorks, Inc.
+             R2023a Update 3 (9.14.0.2286388) 64-bit (glnxa64)
+                                May 25, 2023
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Iteration 10, max diff = 1.259e-01
+Iteration 20, max diff = 5.645e-02
+Iteration 30, max diff = 2.968e-02
+Iteration 40, max diff = 2.338e-02
+Iteration 50, max diff = 1.535e-02
+Iteration 60, max diff = 9.776e-03
+Iteration 70, max diff = 6.195e-03
+Iteration 80, max diff = 3.880e-03
+Iteration 90, max diff = 2.332e-03
+Iteration 100, max diff = 1.098e-03
+Iteration 110, max diff = 5.936e-04
+Iteration 120, max diff = 3.564e-04
+Iteration 130, max diff = 2.082e-04
+Iteration 140, max diff = 1.201e-04
+Iteration 150, max diff = 6.905e-05
+Iteration 160, max diff = 4.005e-05
+Iteration 170, max diff = 2.328e-05
+Iteration 180, max diff = 1.340e-05
+Iteration 190, max diff = 7.808e-06
+Iteration 200, max diff = 4.526e-06
+Iteration 210, max diff = 2.724e-06
+Iteration 220, max diff = 1.503e-06
+Iteration 230, max diff = 8.964e-07
+Iteration 240, max diff = 4.906e-07
+Iteration 250, max diff = 3.237e-07
+Iteration 260, max diff = 1.589e-07
+Iteration 270, max diff = 1.065e-07
+Iteration 280, max diff = 7.690e-08
+Iteration 290, max diff = 5.337e-08
+Iteration 300, max diff = 3.629e-08
+Iteration 310, max diff = 2.591e-08
+Converged at iteration 319

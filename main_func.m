@@ -162,7 +162,7 @@ function main_func(p_exogenous)
     % filepath: c:\Users\super\Dropbox\Esteban_Projects\Scale Vs Scope\1 code\matlab_bin_05_09_2025 LogNormal Wild_Defense\main.m
     title_name = sprintf ('$\\epsilon=%.2f, \\gamma=%.2f, \\sigma=%d, \\phi_h=%.2f, \\bar{m}=%.2f, r = %.2f, \\alpha=%.2f, \\theta=%.2f$', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1), p.r, p.alpha, p.theta);
     file_name = sprintf('epsilon=%.2f, gamma=%.2f, sigma=%d, phi_h=%.2f, m_bar=%.2f, r=%.2f, alpha=%.2f, theta=%.2f', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1), p.r, p.alpha, p.theta);
-    save(['./data2/', file_name, '.mat'] , 'p', 'np' , 'eqm_save');
+    save(['./data3/', file_name, '.mat'] , 'p', 'np' , 'eqm_save');
 
 
     figure;
@@ -239,7 +239,7 @@ function main_func(p_exogenous)
     set(gcf, 'Position', [100, 100, 1600, 1200]);
 
 
-    saveas(gcf, ['./figure_converge2/', file_name, sprintf('_iter=%d.png', iter)]);
+    saveas(gcf, ['./figure_converge3/', file_name, sprintf('_iter=%d.png', iter)]);
 
 
 
