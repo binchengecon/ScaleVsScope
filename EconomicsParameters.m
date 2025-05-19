@@ -2,24 +2,24 @@ function p  = EconomicsParameters()
 
 
     % p.alpha = 0.88;
-    p.alpha = .88;
+    p.alpha = .90;
     p.beta = 8; 
     % p.gamma = 0.1; % Exogenous Death Rate
-    p.gamma = 0.1; % Exogenous Death Rate
+    p.gamma = 0.2; % Exogenous Death Rate
     p.theta = 5;
-    p.phi = [1, .95]; % phi_l = 1, phi_h = 1.05
+    p.phi = [1, 1.05]; % phi_l = 1, phi_h = 1.05
     % p.phi = [1, 1.05]; % phi_l = 1, phi_h = 1.05
     % p.phi = [1, 1.05]; % phi_l = 1, phi_h = 1.05
     p.m = zeros(1,2); % m_l = 0.9, m_h = 0.1
-    p.m(1) = 0.9; % m_l = 0.9, m_h = 0.1
+    p.m(1) = 0.1; % m_l = 0.9, m_h = 0.1
     p.m(2) = 1 - p.m(1); % m_l = 0.9, m_h = 0.1
     % p.m = [0.6, 0.4]; % m_l = 0.9, m_h = 0.1
     p.sigma = 3;
-    p.r = 0.3;
+    p.r = 0.15;
     % p.phi_ratio = p.phi'./p.phi;
     p.pi = 1/(p.sigma - 1) * ( (p.sigma-1)/ p.sigma)^p.sigma ./ (p.phi).^(p.sigma - 1);
     p.epsilon = 1;
-
+    p.zeta= 0.1;
     % figure(2);
 
 

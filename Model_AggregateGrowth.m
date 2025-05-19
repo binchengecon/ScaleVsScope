@@ -70,8 +70,11 @@ function eqm = Model_AggregateGrowth(p, np, func, eqm)
 
     eqm.g  = eqm.Q_type_sigma1(1) * eqm.gp1_type(1) + eqm.Q_type_sigma1(2) * eqm.gp1_type(2);
     eqm.g  = eqm.g / eqm.Q_sigma1; % Normalize g to be between 0 and 1\
-    eqm.g  = max(1, eqm.g); % Ensure g is not negative
+    % eqm.g  = max(1, eqm.g); % Ensure g is not negative
     eqm.g  = eqm.g^(1/ (p.sigma - 1)) - 1; % RHS^(1/(sigma-1))-1 to get the growth rate
+
+    eqm.g_share = eqm.Q_type_sigma1 /eqm.Q_sigma1;
+
 
     
 end

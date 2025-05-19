@@ -162,23 +162,24 @@ title('CDFs of X, Y, and Z (Pareto-related)', 'Interpreter', 'latex', 'FontSize'
 % gamma = [0.20];
 gamma = [0.10 0.20];
 
-m = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9];
+m = [0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9];
 % m = [0.7, 0.75, 0.8, 0.85, 0.9];
 % m = [0.75, 0.8, 0.85, 0.9];
 % m = [0.85, 0.9];
 % m = [0.9];
 
 % phi_h = [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3];
+phi_h = [1.05];
 
 % r = [0.05 0.1 0.15 0.2 0.25 0.3];
-r = [0.15];
+r = [0.10 0.15];
 % theta = [4 5];
 % theta = [3 4];
 theta = [5];
 % alpha = [0.5 0.8 0.88];
-% alpha = [0.6 0.7];
-alpha = [0.5 0.6 0.7 0.8 0.9];
-
+alpha = [0.8 0.9];
+% alpha = [0.5 0.6 0.7 0.8 0.9];
+epsilon = [0.0, 1.0]
 
 result_Expected_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
 result_10quantile_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
@@ -204,7 +205,7 @@ for i = 1:length(gamma)
                         p.theta = theta(f);
                         p.m_bar = m(j);
                         p.gamma = gamma(i);
-                        p.phi_h = 0.95;
+                        p.phi_h = 1.05;
                         p.epsilon = 1.0;
                         p.sigma =3.0;
                         file_name = sprintf('epsilon=%.2f, gamma=%.2f, sigma=%d, phi_h=%.2f, m_bar=%.2f, r=%.2f, alpha=%.2f, theta=%.2f', p.epsilon, p.gamma, p.sigma, p.phi_h, p.m_bar, p.r, p.alpha, p.theta);
@@ -448,6 +449,7 @@ for i = 1:length(gamma)
     ylabel('$s_l$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
     yline(0.5, 'k--', 'LineWidth', 1.5);
+    grid on;
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Market Share For Type L', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
     hold off;
@@ -484,6 +486,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('$s_h$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     yline(0.5, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Market Share For Type H', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -536,7 +539,8 @@ for i = 1:length(gamma)
 
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('$g_l$', 'Interpreter', 'latex', 'FontSize', 20);
-    ylim([-0.5, 0.5]);
+    ylim([-0.35, 0.4]);
+    grid on;
     yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Growth Rate For Type L', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -575,7 +579,8 @@ for i = 1:length(gamma)
 
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('$g_h$', 'Interpreter', 'latex', 'FontSize', 20);
-    ylim([-0.5, 0.5]);
+    ylim([-0.35, 0.4]);
+    grid on;
     yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Growth Rate For Type H', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -616,7 +621,8 @@ for i = 1:length(gamma)
 
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('$g$', 'Interpreter', 'latex', 'FontSize', 20);
-    ylim([-0.5, 0.5]);
+    ylim([-0.35, 0.4]);
+    grid on;
     yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Aggregate Growth Rate', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -673,6 +679,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('$\hat{\mu}_{11} + \hat{\mu}_{12}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type L Steal Prob $\hat{\mu}_{11} + \hat{\mu}_{12}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -712,6 +719,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel(' $\hat{\mu}_{21} + \hat{\mu}_{22}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Steal Prob $\hat{\mu}_{21} + \hat{\mu}_{22}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -776,6 +784,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\nu}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type L Save Prob $\hat{\nu}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -815,6 +824,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\nu}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Save Prob $\hat{\nu}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -877,6 +887,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\delta}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Expected External Innovation Probability $\hat{\delta}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -916,6 +927,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\delta}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Expected External Innovation Probability $\hat{\delta}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -979,6 +991,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\lambda}_{1}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Expected Internal Innovation Probability $\hat{\lambda}_{1}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -1018,6 +1031,7 @@ for i = 1:length(gamma)
     xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylabel('  $\hat{\lambda}_{2}$', 'Interpreter', 'latex', 'FontSize', 20);
     ylim([0, 1]);
+    grid on;
     % yline(0, 'k--', 'LineWidth', 1.5);
     legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
     title('Type H Expected Internal Innovation Probability $\hat{\lambda}_{2}$', 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -1126,6 +1140,7 @@ for i = 1:length(gamma)
         xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylabel('  $E(q)$', 'Interpreter', 'latex', 'FontSize', 20);
         ylim([0.8, 3.6]);
+        grid on;
         % yline(0, 'k--', 'LineWidth', 1.5);
         legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
         title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -1231,6 +1246,7 @@ for i = 1:length(gamma)
         xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylabel('  $q_{10\%}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylim([0.3, 0.6]);
+        grid on;
         % yline(0, 'k--', 'LineWidth', 1.5);
         legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
         title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -1334,6 +1350,7 @@ for i = 1:length(gamma)
         xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylabel('  $q_{50\%}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylim([0.7, 2]);
+        grid on;
         % yline(0, 'k--', 'LineWidth', 1.5);
         legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
         title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
@@ -1436,6 +1453,7 @@ for i = 1:length(gamma)
         xlabel('$\bar{m}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylabel('  $q_{90\%}$', 'Interpreter', 'latex', 'FontSize', 20);
         ylim([1, 10]);
+        grid on;
         % yline(0, 'k--', 'LineWidth', 1.5);
         legend(legend_handles, legend_labels, 'Interpreter', 'latex', 'FontSize', 20, 'Location', 'best'); % Set legend font size
         title(sprintf(' $\\alpha = %.2f$', alpha(g)), 'Interpreter', 'latex', 'FontSize', 20); % Set title font size
