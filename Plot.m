@@ -1881,3 +1881,109 @@ selector_plot(p_scenario1 );
 selector_plot(p_scenario2);
 
 
+
+
+
+
+
+
+
+
+%%
+
+file_name = 'epsilon=1.00, gamma=0.20, sigma=3, phi_h=1.05, m_bar=0.90, r=0.15, alpha=0.90, theta=5.00, beta=8.00';
+% data = load(['./data_beta/', file_name, '.mat'] , 'p', 'np' , 'eqm_save', 'iter_history');
+
+% try
+data = load(['./data_beta/', file_name, '.mat'] , 'p', 'np' , 'eqm_save', 'iter_history');
+% catch ME
+%     fprintf('[LOAD ERROR] Failed to load: %s.mat\nError: %s\n\n', file_name, ME.message);
+%     % bad_files{end+1} = file_name;
+%     % continue;
+% end
+
+eqm = data.eqm_save;
+np = data.np;
+p = data.p;
+
+% eqm.calE
+% eqm.calL
+
+coef_l = eqm.omega_tilde(1,end) / (np.q(end)^(-p.theta - 1));
+coef_h = eqm.omega_tilde(2,end) / (np.q(end)^(-p.theta - 1));
+eqm.omega_tilde_interp_l = @(q) (q > max(np.q)) .* coef_l .* q.^(-p.theta-1) + ...
+    (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega_tilde(1,:), q, 'spline', 'extrap')); % outside is set  for convergence of calE
+eqm.omega_tilde_interp_h = @(q) (q > max(np.q)) .* coef_h .* q.^(-p.theta-1) + ...
+    (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega_tilde(2,:), q, 'spline', 'extrap'));
+eqm.lambda_interp_l = @(q) max(0, min(1, interp1(np.q, eqm.lambda(1,:), q, 'spline', 'extrap')));
+eqm.lambda_interp_h = @(q) max(0, min(1, interp1(np.q, eqm.lambda(2,:), q, 'spline', 'extrap')));
+
+% eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, Inf);  % need more than 100 like 200 poitns to achieve accuracy
+% eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, Inf);
+
+% eqm.calL(1) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_l(q) .* eqm.omega_tilde_interp_l(q) , np.q_min, Inf);
+% eqm.calL(2) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_h(q) .* eqm.omega_tilde_interp_h(q) , np.q_min, Inf);
+
+
+
+eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, 3*  np.q_max);  % need more than 100 like 200 poitns to achieve accuracy
+eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, 3*  np.q_max);  % need
+
+eqm.calL(1) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_l(q) .* eqm.omega_tilde_interp_l(q) , np.q_min, np.q_max);  % need
+eqm.calL(2) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_h(q) .* eqm.omega_tilde_interp_h(q) , np.q_min, np.q_max);  % need
+
+
+% eqm.calE(1) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.omega(1,:));
+% eqm.calE(2) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.omega(2,:));
+
+% eqm.calL(1) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.lambda(1,:) .*  eqm.omega_tilde(1,:));
+% eqm.calL(2) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.lambda(2,:) .*  eqm.omega_tilde(2,:));
+
+eqm.Q_type_sigma1(1) = eqm.calE(1) / ( eqm.s(1) * p.phi(1)^(p.sigma - 1)  );
+eqm.Q_type_sigma1(2) = eqm.calE(2) / ( eqm.s(2) * p.phi(2)^(p.sigma - 1)  );
+eqm.Q_sigma1 = eqm.Q_type_sigma1(1) + eqm.Q_type_sigma1(2);
+
+
+
+eqm.Q_type_sigma1
+
+
+constant = 5;
+
+coef_l = eqm.omega_tilde(1,end) / (np.q(end)^(-p.theta - 1));
+coef_h = eqm.omega_tilde(2,end) / (np.q(end)^(-p.theta - 1));
+eqm.omega_tilde_interp_l = @(q) (q > max(np.q)) .* coef_l .* q.^(-p.theta-1) + ...
+    (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega_tilde(1,:), q, 'spline', 'extrap')); % outside is set  for convergence of calE
+eqm.omega_tilde_interp_h = @(q) (q > max(np.q)) .* coef_h .* q.^(-p.theta-1) + ...
+    (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega_tilde(2,:), q, 'spline', 'extrap'));
+eqm.lambda_interp_l = @(q) max(0, min(1, interp1(np.q, eqm.lambda(1,:), q, 'spline', 'extrap')));
+eqm.lambda_interp_h = @(q) max(0, min(1, interp1(np.q, eqm.lambda(2,:), q, 'spline', 'extrap')));
+
+% eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, Inf);  % need more than 100 like 200 poitns to achieve accuracy
+% eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, Inf);
+
+% eqm.calL(1) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_l(q) .* eqm.omega_tilde_interp_l(q) , np.q_min, Inf);
+% eqm.calL(2) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_h(q) .* eqm.omega_tilde_interp_h(q) , np.q_min, Inf);
+
+
+
+eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, constant* np.q_max);  % need more than 100 like 200 poitns to achieve accuracy
+eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, constant* np.q_max);  % need
+
+eqm.calL(1) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_l(q) .* eqm.omega_tilde_interp_l(q) , np.q_min, np.q_max);  % need
+eqm.calL(2) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_h(q) .* eqm.omega_tilde_interp_h(q) , np.q_min, np.q_max);  % need
+
+
+% eqm.calE(1) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.omega(1,:));
+% eqm.calE(2) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.omega(2,:));
+
+% eqm.calL(1) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.lambda(1,:) .*  eqm.omega_tilde(1,:));
+% eqm.calL(2) = trapz(np.q, np.q.^(p.sigma - 1) .* eqm.lambda(2,:) .*  eqm.omega_tilde(2,:));
+
+eqm.Q_type_sigma1(1) = eqm.calE(1) / ( eqm.s(1) * p.phi(1)^(p.sigma - 1)  );
+eqm.Q_type_sigma1(2) = eqm.calE(2) / ( eqm.s(2) * p.phi(2)^(p.sigma - 1)  );
+eqm.Q_sigma1 = eqm.Q_type_sigma1(1) + eqm.Q_type_sigma1(2);
+
+eqm.Q_type_sigma1
+
+

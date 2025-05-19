@@ -179,7 +179,7 @@ theta = [5];
 % alpha = [0.5 0.8 0.88];
 alpha = [0.8 0.9];
 % alpha = [0.5 0.6 0.7 0.8 0.9];
-epsilon = [0.0, 1.0]
+epsilon = [0.0, 1.0];
 
 result_Expected_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
 result_10quantile_q = zeros(length(gamma), length(m), length(r), length(theta), length(alpha),3);
@@ -1468,4 +1468,17 @@ for i = 1:length(gamma)
     saveas(gcf, sprintf ('./figure_analysis/90quantile_gamma=%.2f.png', gamma(i)));
 end
 
+
+
+
+
+
+
+
+
+
+
+
+
+%%
 

@@ -43,23 +43,24 @@ function eqm = Model_Initialization(p, np, func)
     eqm.omega_tilde = eqm.omega ./ eqm.s; % omega_tild function
     
 
-    % eqm.Omega = zeros(2, np.q_num); % Omega function
-    % eqm.Omega(1,:) = cumtrapz(np.q, eqm.omega(1,:));
-    % eqm.Omega(2,:) = cumtrapz(np.q, eqm.omega(2,:));
-    % eqm.Omega = eqm.Omega ./ max(eqm.Omega); % Vectorized normalization
-    
-    % eqm.Omega(1,:) = linspace(0,1, np.q_num); % Omega function
-    % eqm.Omega(2,:) = linspace(0,1, np.q_num); % Omega function
-    % eqm.Omega_tilde = zeros(2, np.q_num); % Omega_tild function
-    % eqm.Omega_tilde = eqm.Omega ./ eqm.s; % Vectorized Omega_tilde calculation
-    % eqm.omega(:,1:end-1) =  (eqm.Omega(:,2:end) - eqm.Omega(:,1:end-1)) ; % omega function
-    % eqm.omega(:,end) = (eqm.Omega(:,end) - eqm.Omega(:,end-1)) ; % omega function
-    % eqm.omega = eqm.omega / np.dq; % omega function
-    % eqm.omega(1, :) = eqm.omega(1,:) / sum(eqm.omega(1,:) * np.dq); % omega function
-    % eqm.omega(2, :) = eqm.omega(2,:) / sum(eqm.omega(2,:) * np.dq); % omega function
-    % eqm.omega = eqm.omega ./ sum(eqm.omega * np.dq, 2); % Vectorized normalization
 
-    % eqm.omega_tilde = zeros(2, np.q_num); % omega_tild function
-    
+
+
+
+    file_name = sprintf('epsilon=%.2f, gamma=%.2f, sigma=%d, phi_h=%.2f, m_bar=%.2f, r=%.2f, alpha=%.2f, theta=%.2f, beta=%.2f', p.epsilon, p.gamma, p.sigma, p.phi_h, p.m_bar, p.r, p.alpha, p.theta, p.beta);
+    % data = load(['./data_beta/', file_name, '.mat'] , 'p', 'np' , 'eqm_save', 'iter_history');
+
+    try
+        data = load(['./data_beta/', file_name, '.mat'] , 'p', 'np' , 'eqm_save', 'iter_history');
+    catch ME
+        fprintf('[LOAD ERROR] Failed to load solution: %s.mat\nError: %s\n\n', file_name, ME.message);
+    end
+
+
+
+    eqm = data.eqm_save;
+
+
+
 
 end

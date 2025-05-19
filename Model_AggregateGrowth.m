@@ -11,8 +11,8 @@ function eqm = Model_AggregateGrowth(p, np, func, eqm)
     %     (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega(2,:), q, 'spline'));
 
 
-    coef_l = eqm.omega(1,end) / (np.q(end)^(-p.theta - 1));
-    coef_h = eqm.omega(2,end) / (np.q(end)^(-p.theta - 1));
+    coef_l = eqm.omega_tilde(1,end) / (np.q(end)^(-p.theta - 1));
+    coef_h = eqm.omega_tilde(2,end) / (np.q(end)^(-p.theta - 1));
     eqm.omega_tilde_interp_l = @(q) (q > max(np.q)) .* coef_l .* q.^(-p.theta-1) + ...
         (q >= min(np.q) & q <= max(np.q)) .* max(0, interp1(np.q, eqm.omega_tilde(1,:), q, 'spline', 'extrap')); % outside is set  for convergence of calE
     eqm.omega_tilde_interp_h = @(q) (q > max(np.q)) .* coef_h .* q.^(-p.theta-1) + ...
@@ -28,8 +28,8 @@ function eqm = Model_AggregateGrowth(p, np, func, eqm)
 
 
 
-    eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, 3*  np.q_max);  % need more than 100 like 200 poitns to achieve accuracy
-    eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, 3*  np.q_max);  % need
+    eqm.calE(1)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_l(q) , np.q_min, 5*  np.q_max);  % need more than 100 like 200 poitns to achieve accuracy
+    eqm.calE(2)        = integral(  @(q)  q.^(p.sigma - 1) .* eqm.omega_tilde_interp_h(q) , np.q_min, 5*  np.q_max);  % need
 
     eqm.calL(1) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_l(q) .* eqm.omega_tilde_interp_l(q) , np.q_min, np.q_max);  % need
     eqm.calL(2) = integral(  @(q)  q.^(p.sigma - 1) .* eqm.lambda_interp_h(q) .* eqm.omega_tilde_interp_h(q) , np.q_min, np.q_max);  % need
