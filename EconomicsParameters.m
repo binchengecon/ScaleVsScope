@@ -19,7 +19,7 @@ function p  = EconomicsParameters()
     % p.phi_ratio = p.phi'./p.phi;
     p.pi = 1/(p.sigma - 1) * ( (p.sigma-1)/ p.sigma)^p.sigma ./ (p.phi).^(p.sigma - 1);
     p.epsilon = 1;
-    p.zeta= 0.1;
+    p.zeta= 0.5;
     % figure(2);
 
 

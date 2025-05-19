@@ -25,7 +25,7 @@ np = NumericalParameters(func,p);
 eqm = Model_Initialization(p, np, func);
 
 %%
-np.iter_step_max = 500;
+np.iter_step_max = 100;
 s = zeros(2, np.iter_step_max);
 nu_hat = zeros(2, np.iter_step_max);
 delta_hat = zeros(2, np.iter_step_max);
@@ -141,7 +141,7 @@ for iter = 1:np.iter_step_max
         
         sgtitle(sprintf ('$\\epsilon=%.1f, \\gamma=%.1f, \\sigma=%d, \\phi_h=%.2f, \\bar{m}=%.1f$', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1)), 'Interpreter', 'latex');
         set(gcf, 'Position', [100, 100, 1600, 1200]);
-        
+
         fprintf('Iteration %d, max diff = %.3e\n', iter, diff);
 
         % saveas(gcf, sprintf ('./figure2/epsilon=%.1f, gamma=%.1f, sigma=%d, phi_h=%.2f, m_bar=%.1f_iter=%d.png', p.epsilon, p.gamma, p.sigma, p.phi(2), p.m(1), iter));
